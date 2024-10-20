@@ -21,14 +21,12 @@ def create_local():
     db = get_db_connection()
     cursor = db.cursor()
 
-    
     cursor.execute("""
         INSERT INTO locales (Name, Creation_Date, Phone) 
         VALUES (%s, %s, %s)
     """, (name, creation_date, phone))
     local_id = cursor.lastrowid
 
-    
     cursor.execute("""
         INSERT INTO direcciones (LocalName, Street_Name, Street_Number, Neighborhood_Name, District_Name, CAP_Code) 
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -39,6 +37,32 @@ def create_local():
     db.close()
     
     return jsonify({"ID": local_id}), 201
+
+
+@app.route('/locales', methods=['GET'])
+def get_all_locales():
+    db = get_db_connection()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM locales")
+    result = cursor.fetchall()
+    cursor.close()
+    db.close()
+    if not result:
+        return jsonify({"error": "No se encontraron locales"}), 404
+    return jsonify(result), 200
+
+
+@app.route('/locales/<int:id>', methods=['GET'])
+def get_local_by_id(id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM locales WHERE ID = %s", (id,))
+    result = cursor.fetchone()
+    cursor.close()
+    db.close()
+    if not result:
+        return jsonify({"error": "Local no encontrado"}), 404
+    return jsonify(result), 200
 
 @app.route('/locales/<int:id>', methods=['PUT'])
 def update_local(id):
@@ -56,14 +80,12 @@ def update_local(id):
     db = get_db_connection()
     cursor = db.cursor()
 
-    
     cursor.execute("""
         UPDATE locales 
         SET Name = %s, Creation_Date = %s, Phone = %s 
         WHERE ID = %s
     """, (name, creation_date, phone, id))
 
-    
     cursor.execute("""
         UPDATE direcciones 
         SET LocalName = %s, Street_Name = %s, Street_Number = %s, Neighborhood_Name = %s, District_Name = %s, CAP_Code = %s
@@ -82,7 +104,6 @@ def delete_local(id):
     db = get_db_connection()
     cursor = db.cursor()
 
-    
     cursor.execute("SELECT Name FROM locales WHERE ID = %s", (id,))
     local = cursor.fetchone()
     if not local:
@@ -90,10 +111,7 @@ def delete_local(id):
     
     local_name = local[0]
 
-    
     cursor.execute("DELETE FROM direcciones WHERE LocalName = %s", (local_name,))
-    
-    
     cursor.execute("DELETE FROM locales WHERE ID = %s", (id,))
     db.commit()
     cursor.close()
@@ -104,7 +122,7 @@ def delete_local(id):
 
 @app.route('/events', methods=['POST'])
 def create_event():
-    check_api_key()  
+    check_api_key() 
     data = request.json
     name = data.get('Name')
     creation_date = data.get('Creation_Date')
@@ -119,14 +137,12 @@ def create_event():
     db = get_db_connection()
     cursor = db.cursor()
 
-    
     cursor.execute("""
         INSERT INTO events (Name, Creation_Date, Phone, Type_Local) 
         VALUES (%s, %s, %s, %s)
     """, (name, creation_date, phone, type_local))
     event_id = cursor.lastrowid
 
-    
     cursor.execute("""
         INSERT INTO direcciones (EventName, Street_Name, Street_Number, Neighborhood_Name, District_Name, CAP_Code) 
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -138,9 +154,35 @@ def create_event():
 
     return jsonify({"ID": event_id}), 201
 
+
+@app.route('/events', methods=['GET'])
+def get_all_events():
+    db = get_db_connection()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM events")
+    result = cursor.fetchall()
+    cursor.close()
+    db.close()
+    if not result:
+        return jsonify({"error": "No se encontraron eventos"}), 404
+    return jsonify(result), 200
+
+
+@app.route('/events/<int:id>', methods=['GET'])
+def get_event_by_id(id):
+    db = get_db_connection()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM events WHERE ID = %s", (id,))
+    result = cursor.fetchone()
+    cursor.close()
+    db.close()
+    if not result:
+        return jsonify({"error": "Evento no encontrado"}), 404
+    return jsonify(result), 200
+
 @app.route('/events/<int:id>', methods=['PUT'])
 def update_event(id):
-    check_api_key()  
+    check_api_key() 
     data = request.json
     name = data.get('Name')
     creation_date = data.get('Creation_Date')
@@ -155,14 +197,12 @@ def update_event(id):
     db = get_db_connection()
     cursor = db.cursor()
 
-    
     cursor.execute("""
         UPDATE events 
         SET Name = %s, Creation_Date = %s, Phone = %s, Type_Local = %s 
         WHERE ID = %s
     """, (name, creation_date, phone, type_local, id))
 
-    
     cursor.execute("""
         UPDATE direcciones 
         SET EventName = %s, Street_Name = %s, Street_Number = %s, Neighborhood_Name = %s, District_Name = %s, CAP_Code = %s
@@ -181,7 +221,6 @@ def delete_event(id):
     db = get_db_connection()
     cursor = db.cursor()
 
-    
     cursor.execute("SELECT Name FROM events WHERE ID = %s", (id,))
     event = cursor.fetchone()
     if not event:
@@ -189,10 +228,7 @@ def delete_event(id):
 
     event_name = event[0]
 
-    
     cursor.execute("DELETE FROM direcciones WHERE EventName = %s", (event_name,))
-
-    
     cursor.execute("DELETE FROM events WHERE ID = %s", (id,))
     db.commit()
     cursor.close()
@@ -298,6 +334,21 @@ def get_event_phone_by_name(nombre):
         return jsonify({"error": "No se encontró el teléfono del evento"}), 404
     return jsonify({"Telefono": result[0]}), 200
 
+@app.route('/events/distrito/<string:distrito>', methods=['GET'])
+def get_events_by_district(distrito):
+    db = get_db_connection()
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT e.* FROM events e 
+        INNER JOIN direcciones d ON e.ID = d.ID 
+        WHERE d.District_Name LIKE %s
+    """, ('%' + distrito + '%',))
+    result = cursor.fetchall()
+    cursor.close()
+    db.close()
+    if not result:
+        return jsonify({"error": "No se encontraron eventos en ese distrito"}), 404
+    return jsonify(result), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
